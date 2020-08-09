@@ -1,5 +1,5 @@
 # 이미지/모듈 로드
-import RPi.GPIO as GPIO
+# import RPi.GPIO as GPIO
 import cv2
 import numpy as np
 import os
@@ -10,7 +10,7 @@ from playsound import playsound
 import os
 
 
-def decode_braille_image(gray):
+def decode_braille_image(gray, lang):
     debug_images = dict()
     expected_height = 150
     resize_rate = 150 / gray.shape[0]
@@ -80,7 +80,7 @@ def decode_braille_image(gray):
     cv2.imshow("HOUGH", img)
 
     # 라벨을 추출하고 후보 센터점을 구함
-    contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE )
+    _, contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE )
     color = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
     cv2.drawContours(color, contours, -1, (0, 0, 255))
     cv2.imshow('contours', color)
@@ -144,6 +144,9 @@ def decode_braille_image(gray):
 
     dists = [grid_x[i+1] - grid_x[i] for i in range(len(grid_x) - 1)]
     if len(dists) <= 2:
+        if len(dists) == 0:
+            return None, debug_images
+
         norm_dist = min(dists)
     else:
         norm_dist = ransac_average(dists)
@@ -217,7 +220,7 @@ def decode_braille_image(gray):
 
     # 코드로 변환
 
-    import korean_braille
+    import braile
 
     dots2d = dots.reshape([len(grid_y), -1]).astype(np.uint8)
     b_num = []
@@ -230,89 +233,163 @@ def decode_braille_image(gray):
             d = d1 * 16 + d2
             row.append(d)
 
-            if d in korean_braille.b1:
-                print(hex(d), korean_braille.b1[d])
-            elif d in korean_braille.b2:
-                print(hex(d), korean_braille.b2[d])
-            elif d in korean_braille.b3:
-                print(hex(d), korean_braille.b3[d])
-            else:
-                print(hex(d), '??')
 
         b_num.append(row)
+    try:
+        letters = braile.encode(b_num, lang)
+    except:
+        if lang=="en":
+            letters =["error"]
+        else:
+            letters =["오류"]
 
-    final_korean = []
-    for row in b_num:
-        korean = korean_braille.encode(row)
-        final_korean.append(korean)
-        print(korean_braille.encode(row))
+    return letters, debug_images
 
-    ##################
-    return final_korean, debug_images
+def tts(text, lang):
 
-def tts(text):
-
-    tts = gTTS(text, lang='ko')
+    if lang == 'numbers':
+        lang = 'ko'
+    tts = gTTS(text, lang=lang)
 
     tts.save('temp.mp3')
     playsound('temp.mp3')
     time.sleep(2)
 
     os.remove("temp.mp3")
+x0, y0, isDragging, glob_img,cropped_img, img_to_draw = -1, -1, False, None, None, None
+blue = (255, 0, 0)
+red = (0,0,255)
+def callback(event, x, y, flags, param):
+    global isDragging, x0, y0, glob_imgm, cropped_img, img_to_draw
+    if event == cv2.EVENT_LBUTTONDOWN:
+        isDragging = True
+        x0 = x
+        y0 = y
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if isDragging:
+            img_to_draw = glob_img.copy()
+            cv2.rectangle(img_to_draw, (x0, y0), (x, y), blue, 2)
+            # cv2.imshow(winname, img_to_draw)
+    elif event == cv2.EVENT_LBUTTONUP:
+        if isDragging:
+            isDragging = False
+            w = x - x0
+            h = y - y0
+            if w > 0 and h > 0:
+                img_to_draw = glob_img.copy()
+                cv2.rectangle(img_to_draw, (x0, y0), (x, y), red, 2)
+                # cv2.imshow(winname, img_to_draw)
+                cropped_img = glob_img[y0:y, x0:x]
+            else:
+                print('drag should start from left-top side')
 
 if __name__ == '__main__':
     import time
-    cap =cv2.VideoCapture(-1)
-    
+
+
+
+    cap =cv2.VideoCapture(r"D:\tts-rasberry\test\1-1.jpg")
     if not cap.isOpened():
         print("카메라 감지 안됨. 종료")
-        
-    
+
+    def onChanged(x):
+        global img_to_draw
+        img_to_draw = glob_img.copy();
+
+    winname = "original"
+    switch = 'Language'
+    cv2.namedWindow(winname)
+    cv2.resizeWindow(winname, (640, 480))
+    cv2.setMouseCallback(winname, callback)
+    cv2.createTrackbar(switch, winname, 0, 2, onChanged)
+
+
+    language = {0:'ko', 1:'en', 2:'numbers'}
+
+# 카메라 끄고싶으면 여기서부터 주석
     while cap.isOpened():
+
+        lang = cv2.getTrackbarPos(switch, winname)
+        lang = language[lang]
+
         ret, frame = cap.read()
+
         if ret:
-           #  frame = cv2.flip(frame,1 )
-            cv2.imshow("frame", frame)
+            glob_img = frame.copy()
+            #  frame = cv2.flip(frame,1 )
+            if img_to_draw is not None:
+
+                cv2.putText(img_to_draw, lang, (20,50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,0),2)
+                cv2.imshow(winname, img_to_draw)
+            else:
+                cv2.imshow(winname, glob_img)
             key = cv2.waitKey(1)
-            
-     #       if GPIO.input(18)==0:
+
+            cropped = cropped_img
+
+            if cropped_img is not None:
+                cv2.imshow("cropped_img", cropped)
+            else:
+                continue
+            #       if GPIO.input(18)==0:
             if key == ord("a"):
                 start = time.time()
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                korean, debug_images = decode_braille_image(gray)
-                print(time.time()-start)
-                if korean is not None:
-                    for korean_ in korean:
-                        print(korean_)
-                        start = time.time()
-                        tts(korean_)
-                        print(time.time()-start)
-           # first, last = os.path.splitext(filename)
-           # grid_filename = 'dst/' + first + '_grid.jpg'
-           # cv2.imwrite(grid_filename, debug_images['grid'])
-           # cv2.waitKey(0)
-            
-            if key == 27:
-                break
-        else:
-            print(ret)
+                gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+                letters, debug_images = decode_braille_image(gray, lang)
+                if letters is not None:
+                    print(letters)
+                    if len(letters) !=0:
+
+                        for letters_ in letters:
+                            tts(letters_, lang)
+                # first, last = os.path.splitext(filename)
+                # grid_filename = 'dst/' + first + '_grid.jpg'
+                # cv2.imwrite(grid_filename, debug_images['grid'])
+                # cv2.waitKey(0)
+
+                if key == 27:
+                    break
+
     cap.release()
-
-
 
     for root, dirname, filenames in os.walk('test'):
         for filename in filenames:
-            gray = cv2.imread(root + '/' + filename, cv2.IMREAD_GRAYSCALE)
-            start = time.time()
-            korean, debug_images = decode_braille_image(gray)
-            print(time.time()-start)
-            if korean is not None:
-                print(korean)
+            while True:
+                gray = cv2.imread(root + '/' + filename, cv2.IMREAD_GRAYSCALE)
                 start = time.time()
-                tts(korean[0])
-                print(time.time()-start)
-            first, last = os.path.splitext(filename)
-            grid_filename = 'dst/' + first + '_grid.jpg'
-            cv2.imwrite(grid_filename, debug_images['grid'])
-            cv2.waitKey(0)
-        
+                lang = cv2.getTrackbarPos(switch, winname)
+                lang = language[lang]
+
+                glob_img = gray.copy()
+                #  frame = cv2.flip(frame,1 )
+                if img_to_draw is not None:
+
+                    cv2.putText(img_to_draw, lang, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 2)
+                    cv2.imshow(winname, img_to_draw)
+                else:
+                    cv2.imshow(winname, glob_img)
+                key = cv2.waitKey(1)
+
+                cropped = cropped_img
+
+                if cropped_img is not None:
+                    cv2.imshow("cropped_img", cropped)
+                else:
+                    continue
+                #       if GPIO.input(18)==0:
+                if key == ord("a"):
+                    start = time.time()
+                    letters, debug_images = decode_braille_image(gray, lang)
+                    if letters is not None:
+                        print(letters)
+                        if len(letters) != 0:
+
+                            for letters_ in letters:
+                                tts(letters_, lang)
+                            first, last = os.path.splitext(filename)
+                            grid_filename = 'dst/' + first + '_grid.jpg'
+                            cv2.imwrite(grid_filename, debug_images['grid'])
+                            cv2.waitKey(0)
+
+                            break
+

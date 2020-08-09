@@ -145,6 +145,8 @@ def encode(numbers):
 
 
 if __name__ == '__main__':
+    print(b1)
+    exit(0)
     samples = ['ㄱ', 'ㅏ', 'ㅜ', '$', 'ㄷ', 'ㅅ', 'ㅏ', '.ㄹ', '.ㄱ', 'ㅌ', 'ㅡ']
     rb = {l:n for l, n in zip(b1l + b2l + b3l, b1n + b2n + b3n)}
     
