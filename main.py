@@ -1,5 +1,4 @@
-# 이미지/모듈 로드
-# import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import cv2
 import numpy as np
 import os
@@ -80,7 +79,7 @@ def decode_braille_image(gray, lang):
     cv2.imshow("HOUGH", img)
 
     # 라벨을 추출하고 후보 센터점을 구함
-    _, contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE )
+    contours, hierarchy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE )
     color = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
     cv2.drawContours(color, contours, -1, (0, 0, 255))
     cv2.imshow('contours', color)
@@ -259,17 +258,21 @@ def tts(text, lang):
 x0, y0, isDragging, glob_img,cropped_img, img_to_draw = -1, -1, False, None, None, None
 blue = (255, 0, 0)
 red = (0,0,255)
+
 def callback(event, x, y, flags, param):
     global isDragging, x0, y0, glob_imgm, cropped_img, img_to_draw
     if event == cv2.EVENT_LBUTTONDOWN:
+
         isDragging = True
         x0 = x
         y0 = y
+
     elif event == cv2.EVENT_MOUSEMOVE:
         if isDragging:
             img_to_draw = glob_img.copy()
             cv2.rectangle(img_to_draw, (x0, y0), (x, y), blue, 2)
-            # cv2.imshow(winname, img_to_draw)
+            cv2.imshow(winname, img_to_draw)
+            cv2.waitKey(1)
     elif event == cv2.EVENT_LBUTTONUP:
         if isDragging:
             isDragging = False
@@ -278,64 +281,68 @@ def callback(event, x, y, flags, param):
             if w > 0 and h > 0:
                 img_to_draw = glob_img.copy()
                 cv2.rectangle(img_to_draw, (x0, y0), (x, y), red, 2)
-                # cv2.imshow(winname, img_to_draw)
+                cv2.imshow(winname, img_to_draw)
                 cropped_img = glob_img[y0:y, x0:x]
+                cv2.waitKey(1)
             else:
                 print('drag should start from left-top side')
 
+
 if __name__ == '__main__':
     import time
+    GPIO.setmode(GPIO.BCM)
 
-
-
-    cap =cv2.VideoCapture(r"D:\tts-rasberry\test\1-1.jpg")
+    GPIO.setup(18 , GPIO.IN)
+   
+    cap =cv2.VideoCapture(-1)
     if not cap.isOpened():
         print("카메라 감지 안됨. 종료")
-
-    def onChanged(x):
-        global img_to_draw
-        img_to_draw = glob_img.copy();
-
+ 
     winname = "original"
     switch = 'Language'
     cv2.namedWindow(winname)
     cv2.resizeWindow(winname, (640, 480))
     cv2.setMouseCallback(winname, callback)
-    cv2.createTrackbar(switch, winname, 0, 2, onChanged)
 
 
     language = {0:'ko', 1:'en', 2:'numbers'}
+    
+    lang = language[0]
+    def onChanged(x):
+        global lang
+        lang = cv2.getTrackbarPos(switch, winname)
+        lang = language[lang]
+        print(lang)
+    cv2.createTrackbar(switch, winname, 0, 2, onChanged)
 
+    print("Program Started")
 # 카메라 끄고싶으면 여기서부터 주석
     while cap.isOpened():
 
-        lang = cv2.getTrackbarPos(switch, winname)
-        lang = language[lang]
+        
 
         ret, frame = cap.read()
-
+        
         if ret:
             glob_img = frame.copy()
             #  frame = cv2.flip(frame,1 )
-            if img_to_draw is not None:
-
-                cv2.putText(img_to_draw, lang, (20,50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,0),2)
-                cv2.imshow(winname, img_to_draw)
-            else:
-                cv2.imshow(winname, glob_img)
+                        
+            cv2.imshow(winname, glob_img)
             key = cv2.waitKey(1)
 
             cropped = cropped_img
-
+            
+                
             if cropped_img is not None:
                 cv2.imshow("cropped_img", cropped)
             else:
                 continue
-            #       if GPIO.input(18)==0:
-            if key == ord("a"):
+            if GPIO.input(18)==0:
+                            # if key == ord("a"):
                 start = time.time()
                 gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
                 letters, debug_images = decode_braille_image(gray, lang)
+                print(lang)
                 if letters is not None:
                     print(letters)
                     if len(letters) !=0:
@@ -347,8 +354,9 @@ if __name__ == '__main__':
                 # cv2.imwrite(grid_filename, debug_images['grid'])
                 # cv2.waitKey(0)
 
-                if key == 27:
-                    break
+            if key == 27:
+                break
+          
 
     cap.release()
 
