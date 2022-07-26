@@ -290,13 +290,13 @@ def callback(event, x, y, flags, param):
 
 if __name__ == '__main__':
     import time
-    GPIO.setmode(GPIO.BCM)
-
-    GPIO.setup(18 , GPIO.IN)
-   
-    cap =cv2.VideoCapture(-1)
-    if not cap.isOpened():
-        print("카메라 감지 안됨. 종료")
+    # GPIO.setmode(GPIO.BCM)
+    #
+    # GPIO.setup(18 , GPIO.IN)
+    #
+    # cap =cv2.VideoCapture(-1)
+    # if not cap.isOpened():
+    #     print("카메라 감지 안됨. 종료")
  
     winname = "original"
     switch = 'Language'
@@ -316,49 +316,6 @@ if __name__ == '__main__':
     cv2.createTrackbar(switch, winname, 0, 2, onChanged)
 
     print("Program Started")
-# 카메라 끄고싶으면 여기서부터 주석
-    while cap.isOpened():
-
-        
-
-        ret, frame = cap.read()
-        
-        if ret:
-            glob_img = frame.copy()
-            #  frame = cv2.flip(frame,1 )
-                        
-            cv2.imshow(winname, glob_img)
-            key = cv2.waitKey(1)
-
-            cropped = cropped_img
-            
-                
-            if cropped_img is not None:
-                cv2.imshow("cropped_img", cropped)
-            else:
-                continue
-            if GPIO.input(18)==0:
-                            # if key == ord("a"):
-                start = time.time()
-                gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-                letters, debug_images = decode_braille_image(gray, lang)
-                print(lang)
-                if letters is not None:
-                    print(letters)
-                    if len(letters) !=0:
-
-                        for letters_ in letters:
-                            tts(letters_, lang)
-                # first, last = os.path.splitext(filename)
-                # grid_filename = 'dst/' + first + '_grid.jpg'
-                # cv2.imwrite(grid_filename, debug_images['grid'])
-                # cv2.waitKey(0)
-
-            if key == 27:
-                break
-          
-
-    cap.release()
 
     for root, dirname, filenames in os.walk('test'):
         for filename in filenames:
