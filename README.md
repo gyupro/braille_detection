@@ -1,25 +1,30 @@
 # braille_detection
 
+# introduction
+
 Detecting braille on a raspberry pi camera
 
 This project is not finished, I was working on it on raspberry pi, but I had no time to get it done.
 
 Please help this project to get finished.
 
-
 # Process
 
-## Background Removal
+1. Background Removal
 
-## Apply binary threshold
+2. Apply binary threshold
 
-## remove noise
+3. remove noise
 
-## rotation correction
+4. rotation correction
 
-## find grids
+5. find grids
 
-## braille encoding
+6. braille encoding
 
-## unicode encoding
+7. unicode encoding
 
+**before processed**  
+![image](/images/01.jpg)  
+**after processed**  
+![image](/dst/01_grid.jpg)
